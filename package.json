@@ -1,7 +1,7 @@
 {
-  "name": "carbon-components-angular",
+  "name": "@allegro-packets/carbon-components-angular",
   "version": "0.0.0",
-  "description": "Next generation components",
+  "description": "Fork of carbon-components-angular",
   "main": "index.js",
   "scripts": {
     "build": "bash scripts/build.sh",
@@ -60,7 +60,7 @@
     "url": "git@github.com:carbon-design-system/carbon-components-angular.git"
   },
   "publishConfig": {
-    "provenance": true,
+    "provenance": false,
     "access": "public"
   },
   "license": "Apache-2.0",

@@ -1,0 +1,91 @@
+cache:
+  paths:
+    - node_modules/
+
+stages:
+  - test
+  - build
+  - publish
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      variables:
+        IMAGE_TAG: "latest"
+    - if: $CI_COMMIT_TAG
+      variables:
+        IMAGE_TAG: "${CI_COMMIT_TAG}"
+    - if: $CI_COMMIT_BRANCH
+      variables:
+        IMAGE_TAG: "${CI_COMMIT_REF_SLUG}"
+
+lint:
+  stage: test
+  image: node:22-alpine
+  variables:
+    FORCE_COLOR: 1
+  script:
+    - npm install
+    - npm run lint
+
+test:
+  stage: test
+  image: trion/ng-cli-karma
+  variables:
+    FORCE_COLOR: 1
+  script:
+    - npm install
+    # fix from https://github.com/karma-runner/karma-browserstack-launcher/issues/195#issuecomment-1204786412
+    - sed -i -z "s/ removeAllListeners()\n/ removeAllListeners();process.nextTick(() => process.exit(code || 0));\n/g" node_modules/karma/lib/server.js
+    - npm test
+
+build:
+  stage: build
+  image: node:22-alpine
+  variables:
+    FORCE_COLOR: 1
+  before_script:
+    - apk add bash
+  script:
+    - npm install
+    - npm run build
+  artifacts:
+    paths:
+      - dist
+
+build-docs:
+  stage: build
+  image: node:22-alpine
+  variables:
+    FORCE_COLOR: 1
+  script:
+    - npm install
+    - npm run docs:build
+
+build-storybook:
+  stage: build
+  image: node:22-alpine
+  variables:
+    FORCE_COLOR: 1
+  script:
+    - npm install
+    - npm run build-storybook
+  pages:
+    publish: dist/docs/storybook
+
+publish:
+  stage: publish
+  image: node:22-bookworm
+  dependencies:
+    - build
+  variables:
+    Force_COLOR: 1
+    HUSKY: 0
+  before_script:
+    - apt update && apt install -y jq
+  script:
+    - echo "//nodeproxy.intra.allegro-packets.com/:_authToken=\"dummyToken=\"" >> ~/.npmrc
+    - npm config set cafile "/mnt/certs/allegro-ca.crt"
+    - jq --arg DATE $(date '+%Y.%m%d.%H%M') --arg BRANCH $(git branch --show-current) -r '.version |= $DATE' package.json > dist/package.json
+    - cd dist
+    - npm publish --registry https://nodeproxy.intra.allegro-packets.com/ --tag "${IMAGE_TAG}"
